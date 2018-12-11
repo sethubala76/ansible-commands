@@ -1,0 +1,52 @@
+---
+- hosts: 127.0.0.1
+  gather_facts: yes
+  connection: local
+
+  tasks:
+  - name: fetching group varibles files from {{organisation}}(_){{artifact}} {{profile}} {{label}}
+    get_url:
+      url: "{{url}}/{{organisation}}(_){{artifact}}/{{profile}}/{{label}}/provisioning/inventories/group_vars/all.template"
+      dest: "{{playbook_dir}}/inventories/group_vars/all.yml"
+      force: yes
+      mode: 0644
+      timeout: 120
+      validate_certs: no
+      url_username: "{{ user }}"
+      url_password: "{{ password }}"
+    run_once: true
+    delegate_to: 127.0.0.1
+
+  - name: create directories
+    file:
+      path: "{{playbook_dir}}/{{item}}/"
+      state: directory
+    with_items:
+    - tmp
+    
+  - name: fetching decrypted object json files from {{organisation}}(_){{artifact}} {{profile}} {{label}}
+    get_url:
+      url: "{{url}}/config/download/{{organisation}}(_){{artifact}}/{{label}}?nameFilter=provisioning/files/.*"
+      dest: "{{playbook_dir}}/tmp/my-config-archive.tar.gz"
+      force: yes
+      mode: 0644
+      timeout: 120
+      validate_certs: no
+      url_username: "{{ user }}"
+      url_password: "{{ password }}"
+    run_once: true
+    delegate_to: 127.0.0.1
+    register: i
+    
+  - name: extract
+    unarchive:
+      src: "{{i.dest}}"
+      dest: "{{playbook_dir}}/tmp/"
+      list_files: true
+    run_once: true
+    delegate_to: 127.0.0.1
+    
+  - name: copy to config-files
+    command: cp -vr {{playbook_dir}}/tmp/provisioning/files {{playbook_dir}}/config-files
+    run_once: true
+    delegate_to: 127.0.0.1
